@@ -1,0 +1,12 @@
+import crypto from 'node:crypto';
+import { pool } from './db.js';
+
+function b64(v:string){return Buffer.from(v).toString('base64url')}
+function sign(payload:string){return crypto.createHmac('sha256',process.env.AUTH_SECRET||'change-me-in-production').update(payload).digest('base64url')}
+export function hashPassword(password:string){const salt=crypto.randomBytes(16);const hash=crypto.scryptSync(password,salt,64);return `${salt.toString('base64url')}.${hash.toString('base64url')}`}
+export function verifyPassword(password:string,stored:string){const [s,h]=stored.split('.');if(!s||!h)return false;const hash=crypto.scryptSync(password,Buffer.from(s,'base64url'),64);return crypto.timingSafeEqual(hash,Buffer.from(h,'base64url'))}
+export async function createSession(userId:string){const id=crypto.randomUUID();const exp=new Date(Date.now()+Number(process.env.SESSION_DAYS||7)*86400000);const raw=`${id}.${crypto.randomBytes(32).toString('base64url')}`;const tokenHash=crypto.createHash('sha256').update(raw).digest('hex');await pool.query('INSERT INTO sessions(id,user_id,token_hash,expires_at) VALUES($1,$2,$3,$4)',[id,userId,tokenHash,exp]);return {token:raw,expiresAt:exp.toISOString()}}
+export async function getUserFromToken(token?:string){if(!token)return null;const h=crypto.createHash('sha256').update(token).digest('hex');const r=await pool.query(`SELECT u.id,u.name,u.email,u.role,u.status FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()`,[h]);return r.rows[0]||null}
+export function bearer(req:any){const v=String(req.headers.authorization||'');return v.startsWith('Bearer ')?v.slice(7):undefined}
+export function requireRole(role:string|string[]){return async(req:any,res:any,next:any)=>{const user=await getUserFromToken(bearer(req));if(!user||user.status!=='active')return res.status(401).json({error:'Authentication required'});const roles=Array.isArray(role)?role:[role];if(!roles.includes(user.role))return res.status(403).json({error:'Insufficient permissions'});req.user=user;next()}}
+export async function audit(userId:string|undefined,action:string,resourceType:string|undefined,resourceId:string|undefined,metadata:any,ip?:string){await pool.query('INSERT INTO audit_logs(id,actor_user_id,action,resource_type,resource_id,metadata,ip) VALUES($1,$2,$3,$4,$5,$6,$7)',[crypto.randomUUID(),userId||null,action,resourceType||null,resourceId||null,JSON.stringify(metadata||{}),ip||null])}
