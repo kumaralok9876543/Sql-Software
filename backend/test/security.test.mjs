@@ -4,6 +4,8 @@ import fs from 'node:fs';
 const db=fs.readFileSync(new URL('../src/db.ts',import.meta.url),'utf8');
 const server=fs.readFileSync(new URL('../src/server.ts',import.meta.url),'utf8');
 test('practice execution is read-only and bounded',()=>{assert.match(db,/statement_timeout='5000ms'/);assert.match(db,/transaction_read_only=on/);assert.match(db,/work_mem='16MB'/);assert.doesNotMatch(db,/temp_file_limit/);assert.match(db,/Only one SQL statement/);assert.match(db,/Practice execution only permits SELECT\/WITH queries/)});
+test('revision marks and attempts are persisted per session',()=>{assert.match(db,/ADD COLUMN IF NOT EXISTS is_revision BOOLEAN NOT NULL DEFAULT false/);assert.match(db,/question_revision_marks\(session_id TEXT NOT NULL,challenge_id UUID NOT NULL/)});
+test('revision status and marking APIs are available',()=>{assert.match(server,/\/api\/revision-status/);assert.match(server,/\/revision-mark/);assert.match(server,/isRevision/);assert.match(server,/revision_count/)});
 test('production security controls exist',()=>{assert.match(server,/X-Content-Type-Options/);assert.match(server,/X-Frame-Options/);assert.match(server,/Rate limit exceeded/);assert.match(server,/requireRole\('admin'\)/)});
 test('authentication and audit routes exist',()=>{assert.match(server,/\/api\/auth\/register/);assert.match(server,/\/api\/auth\/login/);assert.match(server,/\/api\/auth\/logout/);assert.match(server,/\/api\/admin\/audit/)});
 test('production lifecycle routes exist',()=>{assert.match(server,/\/api\/admin\/questions/);assert.match(server,/\/api\/admin\/collections/);assert.match(server,/\/api\/analytics\/overview/);assert.match(server,/\/api\/export\/progress/)});

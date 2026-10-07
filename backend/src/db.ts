@@ -20,6 +20,8 @@ export async function initDb(){
  CREATE TABLE IF NOT EXISTS attempts(id UUID PRIMARY KEY,challenge_id UUID NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,database_id UUID NOT NULL REFERENCES app_databases(id) ON DELETE CASCADE,session_id TEXT NOT NULL,sql TEXT NOT NULL,correct BOOLEAN NOT NULL DEFAULT false,execution_ms INTEGER NOT NULL DEFAULT 0,error TEXT,actual_json JSONB,created_at TIMESTAMPTZ NOT NULL DEFAULT now());
  CREATE INDEX IF NOT EXISTS attempts_challenge_idx ON attempts(challenge_id,created_at DESC);
  CREATE INDEX IF NOT EXISTS attempts_session_idx ON attempts(session_id,created_at DESC);
+  ALTER TABLE attempts ADD COLUMN IF NOT EXISTS is_revision BOOLEAN NOT NULL DEFAULT false;
+  CREATE TABLE IF NOT EXISTS question_revision_marks(session_id TEXT NOT NULL,challenge_id UUID NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,created_at TIMESTAMPTZ NOT NULL DEFAULT now(),PRIMARY KEY(session_id,challenge_id));
  CREATE TABLE IF NOT EXISTS question_sets(id UUID PRIMARY KEY,database_id UUID NOT NULL REFERENCES app_databases(id) ON DELETE CASCADE,name TEXT NOT NULL,count_requested INTEGER NOT NULL,accepted_count INTEGER NOT NULL DEFAULT 0,rejected_count INTEGER NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'pending',settings JSONB NOT NULL DEFAULT '{}'::jsonb,created_at TIMESTAMPTZ NOT NULL DEFAULT now());
  ALTER TABLE challenges ADD COLUMN IF NOT EXISTS question_set_id UUID REFERENCES question_sets(id) ON DELETE SET NULL;
  CREATE INDEX IF NOT EXISTS challenges_question_set_idx ON challenges(question_set_id);
